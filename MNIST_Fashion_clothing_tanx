@@ -1,0 +1,69 @@
+# !pip install tensorflow
+# !pip install numpy
+# !pip install matplotlib
+
+
+import numpy as np
+import matplotlib.pyplot as plt
+from tensorflow.keras.datasets import fashion_mnist
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Flatten, Conv2D, MaxPooling2D
+
+
+(train_x, train_y), (test_x, test_y) = fashion_mnist.load_data()
+
+
+train_x = train_x / 255.0
+test_x = test_x / 255.0
+
+
+train_x = train_x.reshape(-1, 28, 28, 1)
+test_x = test_x.reshape(-1, 28, 28, 1)
+
+
+model = Sequential()
+model.add(Conv2D(32, (3,3), activation='relu', input_shape=(28,28,1)))
+model.add(MaxPooling2D((2,2)))
+model.add(Flatten())
+model.add(Dense(128, activation='relu'))
+model.add(Dense(10, activation='softmax'))
+
+
+model.compile(
+    optimizer='adam',
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+
+model.fit(
+    train_x,
+    train_y,
+    epochs=5,
+    validation_split=0.2
+)
+
+
+model.summary()
+
+
+loss, acc = model.evaluate(test_x, test_y)
+print("Test Accuracy:", acc)
+
+
+labels = ['t_shirt', 'trouser', 'pullover', 'dress', 'coat',
+          'sandal', 'shirt', 'sneaker', 'bag', 'ankle_boot']
+
+
+predictions = model.predict(test_x[:1])
+predicted_label = labels[np.argmax(predictions)]
+print("Predicted:", predicted_label)
+print("Actual:", labels[test_y[0]])
+
+
+import matplotlib.pyplot as plt
+plt.imshow(test_x[0], cmap='viridis')   # colorful colormap
+plt.colorbar()                          # shows intensity scale
+plt.show()
+
+
