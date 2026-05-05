@@ -1,0 +1,27 @@
+installation of openmp
+
+sudo apt update 
+sudo apt install g++
+sudo apt install libomp-dev
+
+
+create file in mini editor
+
+nano file_name.cpp
+
+then a mini text editor open in terminal then paste code
+
+then to save ::- " ctrl + O"
+
+then " enter"
+
+then "ctrl+x"
+
+
+final execution::-
+
+g++ -fopenmp file_name.cpp -o file_name
+
+then 
+
+./file_name

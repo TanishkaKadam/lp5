@@ -1,0 +1,517 @@
+#include <iostream>
+#include <omp.h>
+using namespace std;
+
+int findMin(int arr[], int n) {
+    int minVal = arr[0];
+
+    #pragma omp parallel for reduction(min:minVal)
+    for (int i = 0; i < n; i++) {
+        if (arr[i] < minVal)
+            minVal = arr[i];
+    }
+
+    return minVal;
+}
+
+int findMax(int arr[], int n) {
+    int maxVal = arr[0];
+
+    #pragma omp parallel for reduction(max:maxVal)
+    for (int i = 0; i < n; i++) {
+        if (arr[i] > maxVal)
+            maxVal = arr[i];
+    }
+
+    return maxVal;
+}
+
+int findSum(int arr[], int n) {
+    int sum = 0;
+
+    #pragma omp parallel for reduction(+:sum)
+    for (int i = 0; i < n; i++) {
+        sum += arr[i];
+    }
+
+    return sum;
+}
+
+double findAvg(int arr[], int n) {
+    return (double)findSum(arr, n) / n;
+}
+
+int main() {
+    int n;
+
+    cout << "Enter number of elements: ";
+    cin >> n;
+
+    int arr[n];
+
+    cout << "Enter " << n << " elements:\n";
+    for (int i = 0; i < n; i++) {
+        cin >> arr[i];
+    }
+
+    cout << "\nResults:\n";
+    cout << "Min: " << findMin(arr, n) << endl;
+    cout << "Max: " << findMax(arr, n) << endl;
+    cout << "Sum: " << findSum(arr, n) << endl;
+    cout << "Avg: " << findAvg(arr, n) << endl;
+
+    return 0;
+}
+
+
+
+minmaxsum above 
+
+#include <iostream>
+#include <vector>
+#include <omp.h>
+
+using namespace std;
+
+class Graph {
+    int V;
+    vector<vector<int>> adj;
+
+public:
+    Graph(int V) {
+        this->V = V;
+        adj.resize(V);
+    }
+
+    void addEdge(int u, int v) {
+        adj[u].push_back(v);
+        adj[v].push_back(u);
+    }
+
+    void parallelDFSUtil(int node, vector<bool> &visited) {
+        bool isNewNode = false;
+
+        // Safely check + mark visited
+        #pragma omp critical
+        {
+            if (!visited[node]) {
+                visited[node] = true;
+                cout << node << " ";
+                isNewNode = true;
+            }
+        }
+
+        // If already visited, stop
+        if (!isNewNode) return;
+
+        // Parallel exploration of neighbors
+        #pragma omp parallel for
+        for (int i = 0; i < (int)adj[node].size(); i++) {
+            int neighbor = adj[node][i];
+
+            if (!visited[neighbor]) {
+                #pragma omp task firstprivate(neighbor)
+                {
+                    parallelDFSUtil(neighbor, visited);
+                }
+            }
+        }
+
+        #pragma omp taskwait
+    }
+
+    void parallelDFS(int start) {
+        vector<bool> visited(V, false);
+
+        cout << "\nParallel DFS Traversal: ";
+
+        #pragma omp parallel
+        {
+            #pragma omp single
+            {
+                parallelDFSUtil(start, visited);
+            }
+        }
+
+        cout << endl;
+    }
+};
+
+int main() {
+    int V, E;
+
+    cout << "Enter number of vertices: ";
+    cin >> V;
+
+    Graph g(V);
+
+    cout << "Enter number of edges: ";
+    cin >> E;
+
+    cout << "Enter edges (u v):\n";
+    for (int i = 0; i < E; i++) {
+        int u, v;
+        cin >> u >> v;
+        g.addEdge(u, v);
+    }
+
+    int start;
+    cout << "Enter starting vertex: ";
+    cin >> start;
+
+    g.parallelDFS(start);
+
+    return 0;
+}
+
+
+
+dfs above 
+
+
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <omp.h>
+
+using namespace std;
+
+class Graph {
+    int V;
+    vector<vector<int>> adj;
+
+public:
+    Graph(int V) {
+        this->V = V;
+        adj.resize(V);
+    }
+
+    void addEdge(int u, int v) {
+        adj[u].push_back(v);
+        adj[v].push_back(u);
+    }
+
+    void parallelBFS(int start) {
+        vector<bool> visited(V, false);
+        queue<int> q;
+
+        visited[start] = true;
+        q.push(start);
+
+        cout << "\nParallel BFS Traversal: ";
+
+        while (!q.empty()) {
+            int size = q.size();
+
+            #pragma omp parallel for
+            for (int i = 0; i < size; i++) {
+                int node = -1;
+
+                // Safely pop from queue
+                #pragma omp critical
+                {
+                    if (!q.empty()) {
+                        node = q.front();
+                        q.pop();
+                        cout << node << " ";
+                    }
+                }
+
+                if (node != -1) {
+                    for (int neighbor : adj[node]) {
+
+                        #pragma omp critical
+                        {
+                            if (!visited[neighbor]) {
+                                visited[neighbor] = true;
+                                q.push(neighbor);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        cout << endl;
+    }
+};
+
+int main() {
+    int V, E;
+
+    cout << "Enter number of vertices: ";
+    cin >> V;
+
+    Graph g(V);
+
+    cout << "Enter number of edges: ";
+    cin >> E;
+
+    cout << "Enter edges (u v):\n";
+    for (int i = 0; i < E; i++) {
+        int u, v;
+        cin >> u >> v;
+        g.addEdge(u, v);
+    }
+
+    int start;
+    cout << "Enter starting vertex: ";
+    cin >> start;
+
+    g.parallelBFS(start);
+
+    return 0;
+}
+
+
+bfs above 
+
+
+#include <iostream>
+#include <vector>
+#include <chrono>
+#include <omp.h>
+#include <algorithm>
+
+using namespace std;
+
+// ---------------- Sequential Bubble Sort ----------------
+void bubbleSortSequential(vector<int>& arr) {
+    int n = arr.size();
+
+    for (int i = 0; i < n - 1; i++) {
+        bool swapped = false;
+
+        for (int j = 0; j < n - i - 1; j++) {
+            if (arr[j] > arr[j + 1]) {
+                swap(arr[j], arr[j + 1]);
+                swapped = true;
+            }
+        }
+
+        if (!swapped) break;
+    }
+}
+
+// ---------------- Parallel Bubble Sort (Odd-Even Transposition) ----------------
+void bubbleSortParallel(vector<int>& arr) {
+    int n = arr.size();
+
+    for (int i = 0; i < n; i++) {
+
+        // Even phase
+        #pragma omp parallel for
+        for (int j = 0; j < n - 1; j += 2) {
+            if (arr[j] > arr[j + 1]) {
+                swap(arr[j], arr[j + 1]);
+            }
+        }
+
+        // Odd phase
+        #pragma omp parallel for
+        for (int j = 1; j < n - 1; j += 2) {
+            if (arr[j] > arr[j + 1]) {
+                swap(arr[j], arr[j + 1]);
+            }
+        }
+    }
+}
+
+// ---------------- Print Array ----------------
+void printArray(const vector<int>& arr) {
+    for (int x : arr)
+        cout << x << " ";
+    cout << endl;
+}
+
+// ---------------- Main Function ----------------
+int main() {
+    int n;
+
+    cout << "Enter number of elements: ";
+    cin >> n;
+
+    vector<int> arr(n), original(n);
+
+    cout << "Enter elements:\n";
+    for (int i = 0; i < n; i++) {
+        cin >> arr[i];
+        original[i] = arr[i];
+    }
+
+    // ---------------- Sequential Execution ----------------
+    auto start = chrono::high_resolution_clock::now();
+
+    bubbleSortSequential(arr);
+
+    auto end = chrono::high_resolution_clock::now();
+
+    double seqTime = chrono::duration<double, milli>(end - start).count();
+
+    cout << "\nSequential Sorted Array: ";
+    printArray(arr);
+
+    cout << "Sequential Time: " << seqTime << " ms\n";
+
+    // ---------------- Parallel Execution ----------------
+    arr = original;
+
+    start = chrono::high_resolution_clock::now();
+
+    bubbleSortParallel(arr);
+
+    end = chrono::high_resolution_clock::now();
+
+    double parTime = chrono::duration<double, milli>(end - start).count();
+
+    cout << "\nParallel Sorted Array: ";
+    printArray(arr);
+
+    cout << "Parallel Time: " << parTime << " ms\n";
+
+    return 0;
+}
+
+bubble sort parallel above
+
+
+#include <iostream>
+#include <vector>
+#include <chrono>
+#include <omp.h>
+#include <cstdlib>
+
+using namespace std;
+
+// Merge function
+void merge(vector<int>& arr, int l, int m, int r) {
+    int n1 = m - l + 1;
+    int n2 = r - m;
+
+    vector<int> L(n1), R(n2);
+
+    for (int i = 0; i < n1; i++)
+        L[i] = arr[l + i];
+
+    for (int j = 0; j < n2; j++)
+        R[j] = arr[m + 1 + j];
+
+    int i = 0, j = 0, k = l;
+
+    while (i < n1 && j < n2) {
+        if (L[i] <= R[j])
+            arr[k++] = L[i++];
+        else
+            arr[k++] = R[j++];
+    }
+
+    while (i < n1) arr[k++] = L[i++];
+    while (j < n2) arr[k++] = R[j++];
+}
+
+// Sequential Merge Sort
+void mergeSortSequential(vector<int>& arr, int l, int r) {
+    if (l < r) {
+        int m = (l + r) / 2;
+
+        mergeSortSequential(arr, l, m);
+        mergeSortSequential(arr, m + 1, r);
+
+        merge(arr, l, m, r);
+    }
+}
+
+// Parallel Merge Sort
+void mergeSortParallel(vector<int>& arr, int l, int r) {
+    if (r - l <= 1000) {
+        mergeSortSequential(arr, l, r);
+        return;
+    }
+
+    int m = (l + r) / 2;
+
+    #pragma omp task shared(arr)
+    mergeSortParallel(arr, l, m);
+
+    #pragma omp task shared(arr)
+    mergeSortParallel(arr, m + 1, r);
+
+    #pragma omp taskwait
+
+    merge(arr, l, m, r);
+}
+
+int main() {
+    int N;
+
+    cout << "==============================\n";
+    cout << "  PARALLEL MERGE SORT (OMP)\n";
+    cout << "==============================\n";
+
+    cout << "Enter number of elements: ";
+    cin >> N;
+
+    vector<int> arr(N), original(N);
+
+    cout << "\nEnter elements:\n";
+    for (int i = 0; i < N; i++) {
+        cin >> arr[i];
+        original[i] = arr[i];
+    }
+
+    omp_set_num_threads(4);
+
+    // ---------------- SEQUENTIAL ----------------
+    auto start = chrono::high_resolution_clock::now();
+    mergeSortSequential(arr, 0, N - 1);
+    auto end = chrono::high_resolution_clock::now();
+
+    double seq_time = chrono::duration<double, milli>(end - start).count();
+
+    cout << "\n---------- SEQUENTIAL RESULT ----------\n";
+    cout << "Time: " << seq_time << " ms\n";
+
+    if (N <= 20) {
+        cout << "Sorted Array: ";
+        for (int x : arr) cout << x << " ";
+        cout << "\n";
+    }
+
+    // restore
+    arr = original;
+
+    // ---------------- PARALLEL ----------------
+    start = chrono::high_resolution_clock::now();
+
+    #pragma omp parallel
+    {
+        #pragma omp single
+        {
+            #pragma omp taskgroup
+            mergeSortParallel(arr, 0, N - 1);
+        }
+    }
+
+    end = chrono::high_resolution_clock::now();
+
+    double par_time = chrono::duration<double, milli>(end - start).count();
+
+    cout << "\n---------- PARALLEL RESULT ----------\n";
+    cout << "Time: " << par_time << " ms\n";
+
+    if (N <= 20) {
+        cout << "Sorted Array: ";
+        for (int x : arr) cout << x << " ";
+        cout << "\n";
+    }
+
+    cout << "\n---------- PERFORMANCE ----------\n";
+    cout << "Speedup: " << seq_time / par_time << "x\n";
+
+    cout << "=====================================\n";
+
+    return 0;
+}
+
+
+merge sort parallel code above 
